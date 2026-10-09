@@ -49,8 +49,9 @@ function Assert-DevBoxPrerequisites {
     }
     $principal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
     if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        Write-Warning ('Terminal administrateur : wslc utilise une session séparée en mode élevé. ' +
-            'Le container ne serait pas visible depuis un terminal normal ni par la tâche planifiée.')
+        throw ('Terminal administrateur détecté : wslc utilise une session séparée en mode élevé, ' +
+            'invisible depuis un terminal normal, le profil Windows Terminal et la tâche planifiée. ' +
+            'Relancez depuis un terminal NON administrateur.')
     }
 }
 

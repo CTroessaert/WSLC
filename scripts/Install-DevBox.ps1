@@ -52,11 +52,20 @@ if (-not $NoScheduledTask) {
         -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 1)
     $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
 
-    Register-ScheduledTask -TaskPath '\WSLC\' -TaskName 'DevBox Update' -Action $action `
-        -Trigger $atLogon, $daily -Settings $settings -Principal $principal `
-        -Description 'Met à jour le container wslc DevBox depuis GHCR (voir README du dépôt WSLC).' `
-        -Force | Out-Null
-    Write-DevBoxLog "Tâche planifiée '\WSLC\DevBox Update' enregistrée (ouverture de session + $($config.UpdateTime))."
+    try {
+        Register-ScheduledTask -TaskPath '\WSLC\' -TaskName 'DevBox Update' -Action $action `
+            -Trigger $atLogon, $daily -Settings $settings -Principal $principal `
+            -Description 'Met à jour le container wslc DevBox depuis GHCR (voir README du dépôt WSLC).' `
+            -Force | Out-Null
+        Write-DevBoxLog "Tâche planifiée '\WSLC\DevBox Update' enregistrée (ouverture de session + $($config.UpdateTime))."
+    }
+    catch [Microsoft.Management.Infrastructure.CimException] {
+        # Tâche créée auparavant depuis un terminal administrateur : un utilisateur standard ne peut pas la remplacer
+        Write-Warning ("Impossible de remplacer la tâche '\WSLC\DevBox Update' (créée en administrateur ?). " +
+            "Elle reste utilisable si elle s'exécute en mode non élevé. Pour la recréer : la supprimer depuis " +
+            "un terminal administrateur (Unregister-ScheduledTask -TaskPath '\WSLC\' -TaskName 'DevBox Update') " +
+            "puis relancer ce script en mode normal.")
+    }
 }
 
 # 4. Profil Windows Terminal (fragment JSON)

@@ -13,6 +13,7 @@ param(
 )
 . (Join-Path $PSScriptRoot 'DevBox.Common.ps1')
 
+Assert-DevBoxPrerequisites
 $config = Get-DevBoxConfig
 if (-not $Shell) { $Shell = $config.Shell }
 
