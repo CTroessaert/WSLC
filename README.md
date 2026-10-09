@@ -7,10 +7,12 @@ par GitHub Actions ; les postes Windows se mettent à jour **automatiquement et 
 ```mermaid
 flowchart LR
     subgraph GH["GitHub (ce dépôt)"]
-        DF["image/Dockerfile"]
+        BOT["Renovate<br/>(nouvelles versions)"]
+        PR["Pull request<br/>build de validation"]
+        DF["image/Dockerfile<br/>versions épinglées"]
         WF[".github/workflows/build.yml<br/>(push + hebdo)"]
         REL["GitHub Release<br/>versions.json"]
-        DF --> WF --> REL
+        BOT --> PR -->|merge auto ou revue| DF --> WF --> REL
     end
     subgraph REG["GHCR"]
         IMG["ghcr.io/ctroessaert/wslc<br/>:latest · :vAAAA.MM.JJ<br/>:edge · :sha-…"]
@@ -28,8 +30,9 @@ flowchart LR
 
 ## Contenu de l'image
 
-Base **Ubuntu 24.04**, multi-arch **amd64 + arm64**. Les outils sont installés dans leur dernière
-version stable au moment du build ; la liste exacte des versions est jointe à chaque
+Base **Ubuntu 24.04**, multi-arch **amd64 + arm64**. Les versions des outils sont **épinglées**
+dans le [`Dockerfile`](image/Dockerfile) (une ligne `ARG …_VERSION` par outil) et mises à jour par
+[Renovate](#versions-des-outils--renovate). La liste exacte des versions est jointe à chaque
 [release](../../releases) (`versions.json`) et disponible dans le container via `devbox-versions`.
 
 | Domaine | Outils |
@@ -46,11 +49,12 @@ Utilisateur `dev` (uid 1000) avec `sudo` sans mot de passe. Télémétrie des CL
 
 | Chemin | Rôle |
 | --- | --- |
-| `image/Dockerfile` | Définition de l'image |
+| `image/Dockerfile` | Définition de l'image, versions épinglées |
+| `image/build/` | Scripts utilisés pendant le build (installation des modules PowerShell…) |
 | `image/rootfs/usr/local/bin/devbox-init` | Point d'entrée : initialise le volume `/home/dev`, fuseau horaire |
 | `image/rootfs/usr/local/bin/devbox-versions` | Inventaire JSON des versions (test de fumée en CI) |
 | `.github/workflows/build.yml` | Build multi-arch, publication GHCR, release automatique |
-| `.github/dependabot.yml` | Mises à jour des actions GitHub et de l'image de base |
+| `renovate.json` | Détection des nouvelles versions (outils, modules, actions GitHub, image Ubuntu) |
 | `config/devbox.psd1` | Paramètres du container côté Windows |
 | `scripts/Install-DevBox.ps1` | Création du container + tâche planifiée + profil Windows Terminal |
 | `scripts/Update-DevBox.ps1` | Mise à jour (lancé par la tâche planifiée) |
@@ -139,14 +143,70 @@ Un outil manque à tout le monde ? Ajoutez-le au `Dockerfile` (voir [Faire évol
 
 ## Mise à jour automatique
 
+La chaîne complète, de la sortie d'une nouvelle version jusqu'au poste :
+
+```mermaid
+sequenceDiagram
+    participant Up as Éditeur (PSGallery, GitHub, npm…)
+    participant Ren as Renovate
+    participant GH as GitHub Actions
+    participant Reg as GHCR
+    participant PC as Poste Windows
+    Up->>Ren: nouvelle version (Az 16.5.0)
+    Note over Ren: attend 3 jours (minimumReleaseAge)
+    Ren->>GH: PR « Update module PowerShell Az to v16.5.0 »
+    GH->>GH: build amd64 + arm64 + test de fumée
+    alt patch / minor et build vert
+        Ren->>GH: merge automatique
+    else majeure
+        Note over Ren,GH: revue et merge manuels
+    end
+    GH->>Reg: push :latest + :vAAAA.MM.JJ
+    GH->>GH: GitHub Release (tableau des versions)
+    PC->>Reg: tâche planifiée : wslc pull
+    PC->>PC: recrée le container (volume /home/dev conservé)
+```
+
+### Versions des outils : Renovate
+
+Chaque version d'outil est épinglée dans le `Dockerfile` et précédée d'un commentaire qui indique
+à Renovate où chercher les nouvelles versions :
+
+```dockerfile
+# renovate: datasource=nuget depName=Az registryUrl=https://www.powershellgallery.com/api/v2/
+ARG PSMODULE_AZ_VERSION=16.4.0
+```
+
+| Outil | Source suivie par Renovate |
+| --- | --- |
+| Modules PowerShell (Az, Graph, EXO, Teams, PnP) | PowerShell Gallery (`nuget`) |
+| Azure CLI | PyPI `azure-cli` (installé via le dépôt apt Microsoft) |
+| PowerShell, Bicep, azd, kubectl, helm, gh | Releases GitHub |
+| CLI for Microsoft 365 | npm |
+| Node.js | versions LTS uniquement (`node-version`) |
+| Actions du workflow, image `ubuntu` | Natif Renovate |
+
+Règles ([`renovate.json`](renovate.json)) :
+
+- une PR par outil, ouverte **3 jours** après la sortie de la version (laisse le temps à l'éditeur de retirer une version cassée) ;
+- la PR déclenche le build des deux architectures et le test de fumée `devbox-versions` ;
+- **patch / minor** : fusion automatique si le build est vert ;
+- **majeure** : label `major`, jamais fusionnée automatiquement. Lire les notes de version jointes à la PR, puis fusionner ;
+- **nouvelle LTS Ubuntu** : proposée uniquement en cochant la case dans l'issue *Dependency Dashboard*
+  (migration manuelle : paquets `libicu*`, dépôts apt…) ;
+- l'issue **Dependency Dashboard** du dépôt récapitule tout : PR ouvertes, en attente, en erreur.
+
+La fusion d'une PR Renovate déclenche le workflow sur `main`, qui publie une release : les postes
+se mettent à jour au passage suivant de la tâche planifiée.
+
 ### Côté GitHub : build et auto-release
 
 Le workflow [`build.yml`](.github/workflows/build.yml) se déclenche :
 
 | Déclencheur | Cache | Release |
 | --- | --- | --- |
-| Push sur `main` modifiant `image/**` ou le workflow | oui | **toujours** |
-| Chaque lundi 04:00 UTC (`schedule`) | non : tout est retéléchargé | **si une version a changé** |
+| Push sur `main` modifiant `image/**` ou le workflow (dont merge Renovate) | oui | **toujours** |
+| Chaque lundi 04:00 UTC (`schedule`) : correctifs de sécurité Ubuntu | non : `apt upgrade` complet | **si un paquet a changé** |
 | Manuel (*Actions → Build & release → Run workflow*) | non | si changement, ou case *force_release* |
 | Pull request | oui | jamais (build de validation uniquement, rien n'est publié) |
 
@@ -203,13 +263,21 @@ revenir sur `:latest`. Les tags disponibles sont listés dans les [releases](../
 | --- | --- |
 | Nouvelle release (nouvelle image) | Sur le dépôt : **Watch → Custom → Releases** (e-mail / app GitHub Mobile) |
 | Échec du build hebdomadaire | E-mail automatique de GitHub Actions à l'auteur du dernier changement du workflow |
-| Nouvelle version d'une action GitHub ou de l'image de base Ubuntu | Pull request Dependabot |
+| Nouvelle version d'un outil, d'un module, d'une action ou de l'image Ubuntu | PR Renovate (notification GitHub) ; récapitulatif dans l'issue *Dependency Dashboard* |
+| Mise à jour majeure en attente de revue | PR Renovate avec le label `major` |
 | Mise à jour appliquée / reportée / en erreur sur le poste | `%LOCALAPPDATA%\wslc-devbox\devbox.log` |
 
 ## Faire évoluer l'image
 
-1. Créer une branche, modifier `image/Dockerfile` (ajouter un module PowerShell : variable `PS_MODULES`,
-   et l'ajouter à la liste de `devbox-versions` pour qu'il soit vérifié et suivi).
+1. Créer une branche et modifier `image/Dockerfile`. Toute nouvelle version épinglée doit être
+   précédée de son commentaire `# renovate:` pour être suivie. Exemple pour ajouter un module PowerShell :
+   ```dockerfile
+   # renovate: datasource=nuget depName=Microsoft.Graph.Beta registryUrl=https://www.powershellgallery.com/api/v2/
+   ARG PSMODULE_GRAPH_BETA_VERSION=2.41.1
+   RUN bash /tmp/build/install-psmodule.sh Microsoft.Graph.Beta "${PSMODULE_GRAPH_BETA_VERSION}"
+   ```
+   puis l'ajouter à la liste des modules de `devbox-versions` (et à `expected_modules`) pour qu'il
+   soit vérifié par le test de fumée et apparaisse dans les releases.
 2. Tester localement :
    ```powershell
    wslc build -t wslc-devbox:test .\image
@@ -228,6 +296,12 @@ revenir sur `:latest`. Les tags disponibles sont listés dans les [releases](../
    (*Packages → wslc → Package settings*), passer la visibilité à **Public**.
    L'image ne contient aucun secret ; elle peut alors être téléchargée sans `wslc login`.
 4. Activer la notification des releases (voir [Notifications](#notifications)).
+5. **Renovate** : installer l'application GitHub [Renovate](https://github.com/apps/renovate) et
+   lui donner accès au dépôt `WSLC` uniquement. `renovate.json` étant déjà présent, il n'ouvre pas
+   de PR d'onboarding et crée directement l'issue *Dependency Dashboard*.
+6. Recommandé, pour que la fusion automatique attende toujours le build :
+   **Settings → General → Allow auto-merge**, puis **Settings → Rules → Rulesets** sur `main` avec
+   *Require status checks to pass* : `build (amd64)` et `build (arm64)`.
 
 > Les runners `ubuntu-24.04-arm` sont gratuits pour les dépôts publics. Sur un dépôt privé,
 > vérifier leur disponibilité dans votre plan GitHub.

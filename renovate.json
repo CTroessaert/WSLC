@@ -1,0 +1,52 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Mises à jour des outils de l'image DevBox et des actions GitHub. Voir README.md, section « Mise à jour des outils ».",
+  "extends": ["config:recommended"],
+  "timezone": "Europe/Paris",
+  "labels": ["dependencies"],
+  "dependencyDashboard": true,
+  "minimumReleaseAge": "3 days",
+  "prHourlyLimit": 0,
+  "prConcurrentLimit": 10,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Versions épinglées dans le Dockerfile : ligne « # renovate: … » suivie de « ARG NOM=version »",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)(?: registryUrl=(?<registryUrl>\\S+))?(?: extractVersion=(?<extractVersion>\\S+))?\\s*\\nARG [A-Z0-9_]+=(?<currentValue>\\S+)"
+      ]
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Patch et minor : fusion automatique si le build multi-arch et le test de fumée passent",
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Versions majeures : PR à relire, jamais fusionnée automatiquement",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "addLabels": ["major"]
+    },
+    {
+      "description": "Nouvelle LTS Ubuntu : migration manuelle (libicu, codename apt…), proposée seulement via le Dependency Dashboard",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ubuntu"],
+      "matchUpdateTypes": ["major", "minor"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Node.js : rester sur les versions LTS (paires)",
+      "matchDepNames": ["node"],
+      "allowedVersions": "/^\\d*[02468]\\./"
+    },
+    {
+      "description": "Titre de PR explicite pour les modules PowerShell",
+      "matchDatasources": ["nuget"],
+      "commitMessageTopic": "module PowerShell {{depName}}"
+    }
+  ]
+}

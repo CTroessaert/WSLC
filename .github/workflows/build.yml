@@ -67,7 +67,18 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-          outputs: ${{ github.event_name == 'pull_request' && 'type=cacheonly' || format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', env.IMAGE) }}
+          outputs: ${{ github.event_name == 'pull_request' && 'type=docker,name=devbox:test' || format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', env.IMAGE) }}
+
+      # Bloque la PR (et donc la fusion automatique Renovate) si un outil manque ou ne se charge pas
+      - name: Test de fumée (${{ matrix.arch }})
+        run: |
+          ref='${{ github.event_name == 'pull_request' && 'devbox:test' || format('{0}@{1}', env.IMAGE, steps.build.outputs.digest) }}'
+          docker run --rm "$ref" devbox-versions
+          # Import des modules avec l'utilisateur non-root, comme sur le poste
+          docker run --rm --user dev "$ref" pwsh -NoProfile -Command '
+            $ErrorActionPreference = "Stop"
+            Import-Module Az.Accounts, Microsoft.Graph.Authentication, ExchangeOnlineManagement, MicrosoftTeams, PnP.PowerShell
+            "Modules importés"'
 
       - name: Exporter le digest
         if: github.event_name != 'pull_request'
@@ -124,8 +135,10 @@ jobs:
             $(printf "${IMAGE}@sha256:%s " *)
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
-      - name: Test de fumée + inventaire des versions
-        run: docker run --rm "${IMAGE}:${{ steps.manifest.outputs.tag }}" devbox-versions > versions.json && cat versions.json
+      - name: Inventaire des versions
+        run: |
+          docker run --rm "${IMAGE}:${{ steps.manifest.outputs.tag }}" devbox-versions > versions.json
+          cat versions.json
 
       - name: Comparer avec la dernière release
         id: diff
