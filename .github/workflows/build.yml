@@ -161,10 +161,13 @@ jobs:
           echo "reason=${reason}" >> "$GITHUB_OUTPUT"
           echo "previous=${previous}" >> "$GITHUB_OUTPUT"
 
+          if [ -n "$reason" ]; then status="**${reason}**"
+          else status="aucune (rien n'a changé, seul :edge est mis à jour)"
+          fi
           {
             echo "## DevBox ${GITHUB_SHA::7}"
             echo
-            echo "Release : **${reason:-aucune (rien n'a changé, seul :edge est mis à jour)}**"
+            echo "Release : ${status}"
             echo
             echo "| Composant | Version | ${previous:-Précédente} |"
             echo "|---|---|---|"
