@@ -5,7 +5,7 @@
 # Les outils sont installés en "dernière version stable" au moment du build :
 # la GitHub Action reconstruit l'image chaque semaine sans cache et publie une
 # release uniquement si une version (ou un paquet OS) a changé.
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 ARG TARGETARCH
 ARG USERNAME=dev
