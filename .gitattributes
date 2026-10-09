@@ -1,0 +1,6 @@
+# Les scripts copiés dans l'image doivent garder des fins de ligne LF
+image/** text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.ps1 text eol=crlf
+*.psd1 text eol=crlf
