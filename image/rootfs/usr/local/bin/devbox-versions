@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Inventaire des versions des outils de l'image, en JSON plat.
+# Sert de test de fumée en CI (code retour 1 si un outil manque) et de base
+# de comparaison pour décider de publier une nouvelle release.
+set -uo pipefail
+
+first() { "$@" 2>/dev/null | head -n1 | tr -d '\r'; }
+
+declare -A v
+v[os]="$(. /etc/os-release && echo "$PRETTY_NAME")"
+v[os-packages]="$(dpkg-query -W -f='${Package}=${Version}\n' | sha256sum | cut -c1-16)"
+v[azure-cli]="$(az version -o json 2>/dev/null | jq -r '."azure-cli"')"
+v[azd]="$(first azd version | awk '{print $3}')"
+v[bicep]="$(first bicep --version | awk '{print $4}')"
+v[pwsh]="$(first pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')"
+v[m365]="$(first m365 version --output text | tr -d '"v')"
+v[node]="$(first node --version | tr -d v)"
+v[kubectl]="$(kubectl version --client -o json 2>/dev/null | jq -r .clientVersion.gitVersion)"
+v[helm]="$(first helm version --short | sed 's/+.*//')"
+v[gh]="$(first gh --version | awk '{print $3}')"
+v[git]="$(first git --version | awk '{print $3}')"
+
+modules="$(pwsh -NoLogo -NoProfile -Command '
+  $h = [ordered]@{}
+  Get-InstalledPSResource -Scope AllUsers -Name Az, Microsoft.Graph, ExchangeOnlineManagement, MicrosoftTeams, PnP.PowerShell |
+    Sort-Object Name | ForEach-Object { $h["psmodule:" + $_.Name] = $_.Version.ToString() }
+  $h | ConvertTo-Json -Compress')"
+
+json="${modules:-"{}"}"
+for k in "${!v[@]}"; do
+  json="$(jq --arg k "$k" --arg v "${v[$k]}" '.[$k] = $v' <<< "$json")"
+done
+json="$(jq -S . <<< "$json")"
+echo "$json"
+
+# Échec si une version est vide ou "null" (outil absent ou cassé)
+missing="$(jq -r 'to_entries[] | select(.value == "" or .value == "null") | .key' <<< "$json")"
+expected_modules=5
+found_modules="$(jq '[keys[] | select(startswith("psmodule:"))] | length' <<< "$json")"
+if [ -n "$missing" ] || [ "$found_modules" -ne "$expected_modules" ]; then
+  echo "Outils manquants : ${missing:-modules PowerShell ($found_modules/$expected_modules)}" >&2
+  exit 1
+fi

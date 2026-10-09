@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Point d'entrée du container : prépare le home persistant puis lance la commande (sleep infinity).
+set -euo pipefail
+
+user="${DEVBOX_USER:-dev}"
+home="/home/${user}"
+
+# Lancé avec --user : pas de préparation possible (et inutile pour une commande ponctuelle)
+if [ "$(id -u)" -ne 0 ]; then
+  exec "$@"
+fi
+
+# Le volume monté sur /home/<user> est vide au premier démarrage : on l'initialise depuis /etc/skel.
+mkdir -p "$home"
+if [ ! -e "$home/.devbox-initialized" ]; then
+  cp -a --update=none /etc/skel/. "$home/"
+  touch "$home/.devbox-initialized"
+  chown -R "$user:$user" "$home"
+fi
+chown "$user:$user" "$home"
+
+# Fuseau horaire passé par -e TZ=...
+if [ -n "${TZ:-}" ] && [ -e "/usr/share/zoneinfo/${TZ}" ]; then
+  ln -snf "/usr/share/zoneinfo/${TZ}" /etc/localtime
+  echo "$TZ" > /etc/timezone
+fi
+
+exec "$@"

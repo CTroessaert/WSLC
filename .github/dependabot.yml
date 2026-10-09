@@ -1,0 +1,12 @@
+version: 2
+updates:
+  # Versions des actions utilisées par le workflow
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  # Image de base (ubuntu:24.04 -> nouvelle LTS)
+  - package-ecosystem: docker
+    directory: /image
+    schedule:
+      interval: weekly
