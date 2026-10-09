@@ -97,7 +97,7 @@ jobs:
       - name: Nom de l'image
         run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: digests-*
           merge-multiple: true
