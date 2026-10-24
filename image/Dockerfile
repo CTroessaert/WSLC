@@ -79,7 +79,7 @@ RUN source /tmp/build/lib.sh \
 
 # Azure Developer CLI
 # renovate: datasource=github-releases depName=Azure/azure-dev extractVersion=^azure-dev-cli_(?<version>.+)$
-ARG AZD_VERSION=1.35.1
+ARG AZD_VERSION=1.37.0
 RUN curl -fsSL https://aka.ms/install-azd.sh | bash -s -- --version "${AZD_VERSION}"
 
 # kubectl
