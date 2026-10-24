@@ -92,7 +92,7 @@ RUN source /tmp/build/lib.sh \
 
 # Helm
 # renovate: datasource=github-releases depName=helm/helm extractVersion=^v(?<version>.+)$
-ARG HELM_VERSION=4.3.0
+ARG HELM_VERSION=4.3.1
 RUN source /tmp/build/lib.sh \
  && curl -fsSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-$(arch_deb).tar.gz" | tar -xz -C /tmp \
  && mv "/tmp/linux-$(arch_deb)/helm" /usr/local/bin/helm \
