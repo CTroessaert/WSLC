@@ -59,7 +59,7 @@ RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_VERSION%%.*}.x" | bash -
 
 # PowerShell 7 (archive officielle : seule méthode commune à amd64 et arm64)
 # renovate: datasource=github-releases depName=PowerShell/PowerShell extractVersion=^v(?<version>.+)$
-ARG PWSH_VERSION=7.6.7
+ARG PWSH_VERSION=7.6.8
 RUN source /tmp/build/lib.sh \
  && curl -fsSL "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/powershell-${PWSH_VERSION}-linux-$(arch_alt).tar.gz" -o /tmp/pwsh.tgz \
  && mkdir -p /opt/microsoft/powershell/7/Scripts/InstalledScriptInfos \
