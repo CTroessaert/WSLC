@@ -101,7 +101,7 @@ RUN source /tmp/build/lib.sh \
 
 # GitHub CLI (archive : le dépôt apt ne conserve que la dernière version)
 # renovate: datasource=github-releases depName=cli/cli extractVersion=^v(?<version>.+)$
-ARG GH_VERSION=2.103.0
+ARG GH_VERSION=2.103.2
 RUN source /tmp/build/lib.sh \
  && curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_$(arch_deb).tar.gz" | tar -xz -C /tmp \
  && mv "/tmp/gh_${GH_VERSION}_linux_$(arch_deb)/bin/gh" /usr/local/bin/gh \
