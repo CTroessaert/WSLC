@@ -84,7 +84,7 @@ RUN curl -fsSL https://aka.ms/install-azd.sh | bash -s -- --version "${AZD_VERSI
 
 # kubectl
 # renovate: datasource=github-releases depName=kubernetes/kubernetes extractVersion=^v(?<version>.+)$
-ARG KUBECTL_VERSION=1.37.1
+ARG KUBECTL_VERSION=1.37.2
 RUN source /tmp/build/lib.sh \
  && curl -fsSL "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/$(arch_deb)/kubectl" -o /usr/local/bin/kubectl \
  && chmod +x /usr/local/bin/kubectl \
