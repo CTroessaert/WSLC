@@ -6,7 +6,7 @@
 # (une PR par outil, voir renovate.json). Chaque ARG est déclaré juste avant
 # l'étape qui l'utilise pour que le cache ne reconstruise que cette étape.
 # Les paquets Ubuntu, eux, suivent « apt upgrade » au build hebdomadaire.
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 ARG TARGETARCH
 ARG USERNAME=dev
