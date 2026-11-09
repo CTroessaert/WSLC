@@ -72,7 +72,7 @@ RUN source /tmp/build/lib.sh \
 
 # Bicep
 # renovate: datasource=github-releases depName=Azure/bicep extractVersion=^v(?<version>.+)$
-ARG BICEP_VERSION=0.48.1
+ARG BICEP_VERSION=0.49.2
 RUN source /tmp/build/lib.sh \
  && curl -fsSL "https://github.com/Azure/bicep/releases/download/v${BICEP_VERSION}/bicep-linux-$(arch_alt)" -o /usr/local/bin/bicep \
  && chmod +x /usr/local/bin/bicep
